@@ -1046,21 +1046,22 @@ function restoreSession() {
       const u = DB.admins.find(a => a.id === s.userId);
       if (!u) return false;
       currentUser = u; currentRole = 'admin';
-      showPage('adminDash'); showAdminSec('home'); checkMobile(); return true;
+      showPage('adminDash'); showAdminSec('home'); checkMobile();
+      requestNotifPermission(); watchNewNotifications(); return true;
     } else if (s.role === 'teacher') {
       const u = DB.teachers.find(t => t.id === s.userId);
       if (!u || !u.active) return false;
       currentUser = u; currentRole = 'teacher';
       showPage('teacherDash'); showTeacherSec('home');
       if (window.innerWidth <= 640) document.getElementById('bottomNavT').style.display = 'block';
-      return true;
+      requestNotifPermission(); watchNewNotifications(); return true;
     } else if (s.role === 'student') {
       const u = DB.students.find(st => st.id === s.userId);
       if (!u || !u.active) return false;
       currentUser = u; currentRole = 'student';
       showPage('studentDash'); showStudentSec('home');
       if (window.innerWidth <= 640) document.getElementById('bottomNavSt').style.display = 'block';
-      return true;
+      requestNotifPermission(); watchNewNotifications(); return true;
     }
   } catch (e) { clearSession(); }
   return false;
@@ -1114,37 +1115,72 @@ function showLogin(){
 }
 
 function logout(){
-  // مودال تسجيل خروج جميل
+  // إزالة أي مودال سابق
+  const old = document.getElementById('logoutOverlay');
+  if (old) old.remove();
+
   const overlay = document.createElement('div');
   overlay.id = 'logoutOverlay';
-  overlay.style.cssText = `position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px;
-    background:linear-gradient(135deg,rgba(6,30,20,0.96),rgba(13,59,46,0.98));backdrop-filter:blur(10px);animation:fadeIn 0.2s ease`;
+  overlay.style.cssText = [
+    'position:fixed','inset:0','z-index:99999',
+    'display:flex','align-items:center','justify-content:center','padding:20px',
+    'background:rgba(4,18,10,0.97)',
+    'animation:fadeIn 0.2s ease',
+    'direction:rtl'
+  ].join(';');
+
   overlay.innerHTML = `
-    <div style="background:linear-gradient(135deg,#0D3B2E,#1A5C45);border:2px solid rgba(201,168,76,0.5);border-radius:24px;
-      padding:36px 28px;text-align:center;max-width:320px;width:100%;box-shadow:0 30px 80px rgba(0,0,0,0.5),0 0 0 1px rgba(201,168,76,0.2);
-      animation:fadeUp 0.25s ease">
-      <div style="font-size:56px;margin-bottom:16px">👋</div>
-      <div style="font-family:'Scheherazade New',serif;font-size:26px;color:var(--gold-light);margin-bottom:8px;font-weight:700">
+    <div style="
+      background:linear-gradient(135deg,#0D3B2E,#1A5C45);
+      border:2px solid rgba(201,168,76,0.5);
+      border-radius:24px;
+      padding:36px 28px;
+      text-align:center;
+      max-width:310px;
+      width:100%;
+      box-shadow:0 30px 80px rgba(0,0,0,0.7);
+      animation:fadeUp 0.25s ease;
+      font-family:'Cairo',sans-serif;
+    ">
+      <div style="font-size:60px;margin-bottom:14px;line-height:1">👋</div>
+      <div style="font-family:'Scheherazade New',serif;font-size:26px;color:#E8C96A;margin-bottom:10px;font-weight:700">
         هل تريد المغادرة؟
       </div>
-      <div style="font-size:14px;color:rgba(255,255,255,0.65);margin-bottom:28px;line-height:1.8">
-        نتمنى أن تعود قريباً إن شاء الله<br>
-        <span style="color:var(--gold);font-size:18px">﴿ وَتَوَكَّلْ عَلَى اللَّهِ ﴾</span>
+      <div style="font-size:14px;color:rgba(255,255,255,0.65);margin-bottom:8px;line-height:1.8">
+        نتمنى أن تعود قريباً إن شاء الله
+      </div>
+      <div style="font-size:20px;color:#C9A84C;margin-bottom:28px">
+        ﴿ وَتَوَكَّلْ عَلَى اللَّهِ ﴾
       </div>
       <div style="display:flex;gap:12px">
-        <button onclick="confirmLogout()" style="flex:1;padding:14px;background:linear-gradient(135deg,#C0392B,#922B21);
-          color:white;border:none;border-radius:14px;font-size:15px;font-weight:800;font-family:'Cairo',sans-serif;
-          cursor:pointer;box-shadow:0 4px 15px rgba(192,57,43,0.4)">
-          🚪 تسجيل الخروج
-        </button>
-        <button onclick="document.getElementById('logoutOverlay').remove()" style="flex:1;padding:14px;
-          background:rgba(255,255,255,0.1);color:white;border:1px solid rgba(255,255,255,0.2);
-          border-radius:14px;font-size:15px;font-weight:800;font-family:'Cairo',sans-serif;cursor:pointer">
-          ↩️ تراجع
-        </button>
+        <button id="_logoutConfirmBtn" style="
+          flex:1;padding:14px;
+          background:linear-gradient(135deg,#C0392B,#922B21);
+          color:white;border:none;border-radius:14px;
+          font-size:15px;font-weight:800;
+          font-family:'Cairo',sans-serif;
+          cursor:pointer;
+          box-shadow:0 4px 15px rgba(192,57,43,0.4);
+        ">🚪 تسجيل الخروج</button>
+        <button id="_logoutCancelBtn" style="
+          flex:1;padding:14px;
+          background:rgba(255,255,255,0.1);
+          color:white;
+          border:1px solid rgba(255,255,255,0.25);
+          border-radius:14px;
+          font-size:15px;font-weight:800;
+          font-family:'Cairo',sans-serif;
+          cursor:pointer;
+        ">↩️ تراجع</button>
       </div>
     </div>`;
+
   document.body.appendChild(overlay);
+
+  // ربط الأزرار بعد الإضافة لضمان العمل في التطبيق المثبّت
+  document.getElementById('_logoutConfirmBtn').addEventListener('click', confirmLogout);
+  document.getElementById('_logoutCancelBtn').addEventListener('click', () => overlay.remove());
+  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
 }
 
 function confirmLogout(){
@@ -1181,7 +1217,7 @@ function adminLogin(){
   const email=document.getElementById('adminEmail').value.trim();
   const pin=document.getElementById('adminPin').value.trim();
   const admin=DB.admins.find(a=>a.email===email&&a.pin===pin);
-  if(admin){ currentUser=admin; currentRole='admin'; saveSession('admin',admin.id); showPage('adminDash'); showAdminSec('home'); checkMobile(); checkPendingUpdate(); }
+  if(admin){ currentUser=admin; currentRole='admin'; saveSession('admin',admin.id); showPage('adminDash'); showAdminSec('home'); checkMobile(); checkPendingUpdate(); requestNotifPermission(); watchNewNotifications(); }
   else{ showMsg('❌ البريد أو الرمز غير صحيح'); document.getElementById('adminPin').value=''; }
 }
 
@@ -1203,14 +1239,7 @@ function teacherLogin(){
     saveSession('teacher',teacher.id);
     showPage('teacherDash'); showTeacherSec('home');
     if(window.innerWidth<=640) document.getElementById('bottomNavT').style.display='block';
-  } else {
-    showMsg('❌ اسم المستخدم أو كلمة المرور غير صحيحة');
-    // Debug hint
-    document.getElementById('teacherPass').value='';
-  }
-}
-
-function studentLogin(){
+    requestNotifPermission(); watchNewNotifications();
   const user = cleanInput(document.getElementById('stUser').value);
   const pass = cleanInput(document.getElementById('stPass').value);
   if(!user||!pass){ showMsg('⚠️ يرجى إدخال اسم المستخدم وكلمة المرور','warning'); return; }
@@ -1224,14 +1253,7 @@ function studentLogin(){
     saveSession('student',st.id);
     showPage('studentDash'); showStudentSec('home');
     if(window.innerWidth<=640) document.getElementById('bottomNavSt').style.display='block';
-  } else {
-    showMsg('❌ اسم المستخدم أو كلمة المرور غير صحيحة');
-    document.getElementById('stPass').value='';
-  }
-}
-
-// ═══════════════════════════════════════
-// MODALS
+    requestNotifPermission(); watchNewNotifications();
 // ═══════════════════════════════════════
 function openModal(id){
   // populate teacher select if needed
@@ -1332,10 +1354,10 @@ function buildAdminHome(){
       <div style="font-size:13px;font-weight:800;color:white">الرسائل</div>
       <div style="font-size:11px;color:rgba(255,255,255,0.7);margin-top:4px">${totalMsgs} رسالة</div>
     </div>
-    <div onclick="startGroupCallAdmin()" style="background:linear-gradient(135deg,#7c1d1d,#c0392b);border-radius:16px;padding:20px 10px;text-align:center;cursor:pointer;transition:transform 0.15s;box-shadow:0 4px 15px rgba(0,0,0,0.2)" onmouseover="this.style.transform='translateY(-3px)'" onmouseout="this.style.transform='translateY(0)'">
-      <div style="font-size:34px;margin-bottom:8px">📹</div>
-      <div style="font-size:13px;font-weight:800;color:white">اتصال</div>
-      <div style="font-size:11px;color:rgba(255,255,255,0.7);margin-top:4px">Google Meet</div>
+    <div onclick="showAdminSec('records')" style="background:linear-gradient(135deg,#2d6a4f,#1B4332);border-radius:16px;padding:20px 10px;text-align:center;cursor:pointer;transition:transform 0.15s;box-shadow:0 4px 15px rgba(0,0,0,0.2)" onmouseover="this.style.transform='translateY(-3px)'" onmouseout="this.style.transform='translateY(0)'">
+      <div style="font-size:34px;margin-bottom:8px">📋</div>
+      <div style="font-size:13px;font-weight:800;color:white">السجلات</div>
+      <div style="font-size:11px;color:rgba(255,255,255,0.7);margin-top:4px">${DB.students.length + DB.teachers.length} مستخدم</div>
     </div>
   </div>
 
@@ -2383,9 +2405,12 @@ function saveNotif(){
   const t=document.getElementById('nn_title').value.trim();
   const m=document.getElementById('nn_body').value.trim();
   if(!t||!m){ showToast('⚠️ يرجى ملء الحقول الإلزامية','warning'); return; }
-  DB.notifications.push({ id:DB.nextId.notif++, title:t, message:m, sentBy:currentUser.name, target:document.getElementById('nn_target').value, date:new Date().toISOString().split('T')[0], teacherId:null });
+  const notif = { id:DB.nextId.notif++, title:t, message:m, sentBy:currentUser.name, target:document.getElementById('nn_target').value, date:new Date().toISOString().split('T')[0], teacherId:null };
+  DB.notifications.push(notif);
   saveData(DB); closeModal('modalAddNotif');
   document.getElementById('nn_title').value=''; document.getElementById('nn_body').value='';
+  // إرسال إشعار خارجي
+  sendPushNotification(t, m, '🔔 ' + currentUser.name);
   showToast('✅ تم إرسال التبليغ'); showAdminSec('notify');
 }
 function deleteNotif(id){ DB.notifications=DB.notifications.filter(n=>n.id!==id); saveData(DB); showToast('🗑️ تم حذف التبليغ'); showAdminSec('notify'); }
@@ -2394,9 +2419,12 @@ function saveTeacherNotif(){
   const t=document.getElementById('tn_title').value.trim();
   const m=document.getElementById('tn_body').value.trim();
   if(!t||!m){ showToast('⚠️ يرجى ملء الحقول الإلزامية','warning'); return; }
-  DB.notifications.push({ id:DB.nextId.notif++, title:t, message:m, sentBy:currentUser.name, target:'all', date:new Date().toISOString().split('T')[0], teacherId:currentUser.id });
+  const notif = { id:DB.nextId.notif++, title:t, message:m, sentBy:currentUser.name, target:'all', date:new Date().toISOString().split('T')[0], teacherId:currentUser.id };
+  DB.notifications.push(notif);
   saveData(DB); closeModal('modalTeacherNotif');
   document.getElementById('tn_title').value=''; document.getElementById('tn_body').value='';
+  // إرسال إشعار خارجي
+  sendPushNotification(t, m, currentUser.name + ' 👳');
   showToast('✅ تم إرسال التبليغ'); showTeacherSec('notify');
 }
 function deleteTeacherNotif(id){ DB.notifications=DB.notifications.filter(n=>n.id!==id); saveData(DB); showToast('🗑️ تم الحذف'); showTeacherSec('notify'); }
@@ -2608,117 +2636,137 @@ function startCallFromCtx() {
 function buildAdminRecords() {
   const students = DB.students;
   const teachers = DB.teachers;
+  const activeS = students.filter(s=>s.active).length;
+  const activeT = teachers.filter(t=>t.active).length;
 
-  const stuRows = students.map((s,i)=>`
-    <tr style="border-bottom:1px solid rgba(201,168,76,0.1);transition:background 0.15s" onmouseover="this.style.background='rgba(201,168,76,0.06)'" onmouseout="this.style.background=''">
-      <td style="padding:12px 10px;font-weight:700;color:var(--gold)">${i+1}</td>
-      <td style="padding:12px 10px">
-        <div style="font-weight:700;color:var(--text-dark)">${s.fullName}</div>
-        <div style="font-size:11px;color:var(--text-soft)">${s.level} • ${s.gender==='male'?'ذكر':'أنثى'}</div>
-      </td>
-      <td style="padding:12px 10px;font-family:monospace;font-size:13px;color:var(--green-mid);font-weight:700;direction:ltr;text-align:right">${s.username}</td>
-      <td style="padding:12px 10px;font-family:monospace;font-size:13px;color:var(--text-med);direction:ltr;text-align:right">${s.password}</td>
-      <td style="padding:12px 10px;text-align:center">
-        <span style="padding:4px 10px;border-radius:20px;font-size:11px;font-weight:700;
-          background:${s.active?'rgba(46,139,90,0.15)':'rgba(192,57,43,0.1)'};
+  const stuCards = students.map((s,i)=>`
+    <div style="background:white;border-radius:16px;padding:16px;border:1px solid rgba(26,92,69,0.12);
+      box-shadow:0 2px 12px rgba(0,0,0,0.06);transition:transform 0.15s,box-shadow 0.15s;position:relative;overflow:hidden"
+      onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 8px 24px rgba(0,0,0,0.1)'"
+      onmouseout="this.style.transform='';this.style.boxShadow='0 2px 12px rgba(0,0,0,0.06)'">
+      <!-- شريط جانبي -->
+      <div style="position:absolute;right:0;top:0;bottom:0;width:4px;background:${s.active?'linear-gradient(180deg,#1A5C45,#2E8B5A)':'linear-gradient(180deg,#C0392B,#E74C3C)'};border-radius:0 16px 16px 0"></div>
+      <!-- رقم + اسم -->
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
+        <div style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#1A5C45,#2E8B5A);
+          display:flex;align-items:center;justify-content:center;color:white;font-weight:900;font-size:14px;flex-shrink:0">
+          ${i+1}
+        </div>
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:800;font-size:14px;color:#1A1A1A;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${s.fullName}</div>
+          <div style="font-size:11px;color:#6B6B6B;margin-top:2px">${s.level} • ${s.gender==='male'?'👦 ذكر':'👧 أنثى'}</div>
+        </div>
+        <span style="padding:4px 10px;border-radius:20px;font-size:11px;font-weight:700;flex-shrink:0;
+          background:${s.active?'rgba(26,92,69,0.1)':'rgba(192,57,43,0.1)'};
           color:${s.active?'#1A5C45':'#C0392B'}">
-          ${s.active?'✅ نشط':'⛔ موقوف'}
+          ${s.active?'● نشط':'● موقوف'}
         </span>
-      </td>
-      <td style="padding:12px 10px;text-align:center">
-        <button onclick="copyRecord('${s.fullName}','${s.username}','${s.password}')" 
-          style="background:rgba(201,168,76,0.15);border:1px solid rgba(201,168,76,0.3);color:var(--gold);
-          padding:6px 12px;border-radius:8px;cursor:pointer;font-size:12px;font-family:'Cairo',sans-serif;font-weight:700">
-          📋 نسخ
-        </button>
-      </td>
-    </tr>`).join('');
+      </div>
+      <!-- بيانات الدخول -->
+      <div style="background:#F8FAF9;border-radius:10px;padding:10px 12px;margin-bottom:10px;border:1px solid rgba(26,92,69,0.08)">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+          <span style="font-size:11px;color:#6B6B6B;font-weight:600">👤 اسم المستخدم</span>
+          <span style="font-family:monospace;font-size:13px;color:#0C3526;font-weight:700;direction:ltr;letter-spacing:0.5px">${s.username}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <span style="font-size:11px;color:#6B6B6B;font-weight:600">🔑 كلمة المرور</span>
+          <span style="font-family:monospace;font-size:13px;color:#9A7A2E;font-weight:700;direction:ltr;letter-spacing:1px">${s.password}</span>
+        </div>
+      </div>
+      <!-- زر النسخ -->
+      <button onclick="copyRecord('${s.fullName.replace(/'/g,"\\'")}','${s.username}','${s.password}')"
+        style="width:100%;padding:9px;background:linear-gradient(135deg,#1A5C45,#2E8B5A);color:white;border:none;
+        border-radius:10px;font-size:13px;font-weight:800;font-family:'Cairo',sans-serif;cursor:pointer;
+        display:flex;align-items:center;justify-content:center;gap:6px">
+        📋 نسخ بيانات الدخول
+      </button>
+    </div>`).join('');
 
-  const tchRows = teachers.map((t,i)=>`
-    <tr style="border-bottom:1px solid rgba(201,168,76,0.1);transition:background 0.15s" onmouseover="this.style.background='rgba(201,168,76,0.06)'" onmouseout="this.style.background=''">
-      <td style="padding:12px 10px;font-weight:700;color:var(--gold)">${i+1}</td>
-      <td style="padding:12px 10px">
-        <div style="font-weight:700;color:var(--text-dark)">${t.emoji||'👳'} ${t.name}</div>
-        <div style="font-size:11px;color:var(--text-soft)">${t.subject}</div>
-      </td>
-      <td style="padding:12px 10px;font-family:monospace;font-size:13px;color:var(--green-mid);font-weight:700;direction:ltr;text-align:right">${t.username}</td>
-      <td style="padding:12px 10px;font-family:monospace;font-size:13px;color:var(--text-med);direction:ltr;text-align:right">${t.password}</td>
-      <td style="padding:12px 10px;text-align:center">
-        <span style="padding:4px 10px;border-radius:20px;font-size:11px;font-weight:700;
-          background:${t.active?'rgba(46,139,90,0.15)':'rgba(192,57,43,0.1)'};
-          color:${t.active?'#1A5C45':'#C0392B'}">
-          ${t.active?'✅ نشط':'⛔ موقوف'}
+  const tchCards = teachers.map((t,i)=>`
+    <div style="background:white;border-radius:16px;padding:16px;border:1px solid rgba(154,122,46,0.15);
+      box-shadow:0 2px 12px rgba(0,0,0,0.06);transition:transform 0.15s,box-shadow 0.15s;position:relative;overflow:hidden"
+      onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 8px 24px rgba(0,0,0,0.1)'"
+      onmouseout="this.style.transform='';this.style.boxShadow='0 2px 12px rgba(0,0,0,0.06)'">
+      <div style="position:absolute;right:0;top:0;bottom:0;width:4px;background:${t.active?'linear-gradient(180deg,#C9A84C,#E8C96A)':'linear-gradient(180deg,#C0392B,#E74C3C)'};border-radius:0 16px 16px 0"></div>
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
+        <div style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#9A7A2E,#C9A84C);
+          display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0">
+          ${t.emoji||'👳'}
+        </div>
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:800;font-size:14px;color:#1A1A1A;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${t.name}</div>
+          <div style="font-size:11px;color:#6B6B6B;margin-top:2px">${t.subject}</div>
+        </div>
+        <span style="padding:4px 10px;border-radius:20px;font-size:11px;font-weight:700;flex-shrink:0;
+          background:${t.active?'rgba(201,168,76,0.12)':'rgba(192,57,43,0.1)'};
+          color:${t.active?'#9A7A2E':'#C0392B'}">
+          ${t.active?'● نشط':'● موقوف'}
         </span>
-      </td>
-      <td style="padding:12px 10px;text-align:center">
-        <button onclick="copyRecord('${t.name}','${t.username}','${t.password}')"
-          style="background:rgba(201,168,76,0.15);border:1px solid rgba(201,168,76,0.3);color:var(--gold);
-          padding:6px 12px;border-radius:8px;cursor:pointer;font-size:12px;font-family:'Cairo',sans-serif;font-weight:700">
-          📋 نسخ
-        </button>
-      </td>
-    </tr>`).join('');
-
-  const tableStyle = `width:100%;border-collapse:collapse;font-family:'Cairo',sans-serif;font-size:13px`;
-  const thStyle = `padding:12px 10px;background:linear-gradient(135deg,var(--green-dark),var(--green-mid));color:var(--gold);font-weight:800;text-align:right;font-size:12px`;
+      </div>
+      <div style="background:#FDFBF5;border-radius:10px;padding:10px 12px;margin-bottom:10px;border:1px solid rgba(201,168,76,0.12)">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+          <span style="font-size:11px;color:#6B6B6B;font-weight:600">👤 اسم المستخدم</span>
+          <span style="font-family:monospace;font-size:13px;color:#0C3526;font-weight:700;direction:ltr;letter-spacing:0.5px">${t.username}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <span style="font-size:11px;color:#6B6B6B;font-weight:600">🔑 كلمة المرور</span>
+          <span style="font-family:monospace;font-size:13px;color:#9A7A2E;font-weight:700;direction:ltr;letter-spacing:1px">${t.password}</span>
+        </div>
+      </div>
+      <button onclick="copyRecord('${t.name.replace(/'/g,"\\'")}','${t.username}','${t.password}')"
+        style="width:100%;padding:9px;background:linear-gradient(135deg,#9A7A2E,#C9A84C);color:white;border:none;
+        border-radius:10px;font-size:13px;font-weight:800;font-family:'Cairo',sans-serif;cursor:pointer">
+        📋 نسخ بيانات الدخول
+      </button>
+    </div>`).join('');
 
   return `
   <div class="sec-header"><div class="sec-title">📋 سجلات المستخدمين</div></div>
 
-  <!-- إحصائية سريعة -->
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
-    <div class="stat-card" style="text-align:center">
-      <div style="font-size:32px;font-weight:900;color:var(--green-mid)">${students.length}</div>
-      <div style="font-size:13px;color:var(--text-soft)">إجمالي الطلاب</div>
-      <div style="font-size:11px;color:var(--green-mid)">${students.filter(s=>s.active).length} نشط</div>
+  <!-- إحصائيات -->
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px">
+    <div style="background:linear-gradient(135deg,#1A5C45,#2E8B5A);border-radius:14px;padding:14px;text-align:center;color:white">
+      <div style="font-size:26px;font-weight:900">${students.length}</div>
+      <div style="font-size:11px;opacity:0.85">طلاب</div>
     </div>
-    <div class="stat-card" style="text-align:center">
-      <div style="font-size:32px;font-weight:900;color:var(--gold-dark)">${teachers.length}</div>
-      <div style="font-size:13px;color:var(--text-soft)">إجمالي المدرّسين</div>
-      <div style="font-size:11px;color:var(--gold-dark)">${teachers.filter(t=>t.active).length} نشط</div>
+    <div style="background:linear-gradient(135deg,#0C3526,#1A5C45);border-radius:14px;padding:14px;text-align:center;color:white">
+      <div style="font-size:26px;font-weight:900;color:#4ade80">${activeS}</div>
+      <div style="font-size:11px;opacity:0.85">نشط</div>
+    </div>
+    <div style="background:linear-gradient(135deg,#9A7A2E,#C9A84C);border-radius:14px;padding:14px;text-align:center;color:white">
+      <div style="font-size:26px;font-weight:900">${teachers.length}</div>
+      <div style="font-size:11px;opacity:0.85">مدرّسون</div>
+    </div>
+    <div style="background:linear-gradient(135deg,#7A5E1E,#9A7A2E);border-radius:14px;padding:14px;text-align:center;color:white">
+      <div style="font-size:26px;font-weight:900;color:#fde68a">${activeT}</div>
+      <div style="font-size:11px;opacity:0.85">نشط</div>
     </div>
   </div>
 
   <!-- سجل الطلاب -->
-  <div class="panel anim-fade-up" style="margin-bottom:16px;padding:0;overflow:hidden">
-    <div class="panel-title" style="padding:14px 16px;border-radius:0;background:linear-gradient(135deg,rgba(26,92,69,0.1),transparent)">
-      <span class="panel-title-txt">📚 سجل الطلاب (${students.length})</span>
-      <button onclick="copyAllRecords('students')" style="margin-right:auto;background:var(--green-mid);color:white;border:none;padding:6px 14px;border-radius:8px;cursor:pointer;font-size:12px;font-family:'Cairo',sans-serif;font-weight:700">📋 نسخ الكل</button>
-    </div>
-    <div style="overflow-x:auto">
-      <table style="${tableStyle}">
-        <thead><tr>
-          <th style="${thStyle}">#</th>
-          <th style="${thStyle}">الاسم</th>
-          <th style="${thStyle}">اسم المستخدم</th>
-          <th style="${thStyle}">كلمة المرور</th>
-          <th style="${thStyle}">الحالة</th>
-          <th style="${thStyle}">نسخ</th>
-        </tr></thead>
-        <tbody>${stuRows||'<tr><td colspan="6" style="text-align:center;padding:20px;color:var(--text-soft)">لا يوجد طلاب</td></tr>'}</tbody>
-      </table>
-    </div>
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+    <div style="font-size:16px;font-weight:900;color:white">📚 سجل الطلاب</div>
+    <button onclick="copyAllRecords('students')"
+      style="background:rgba(255,255,255,0.12);color:white;border:1px solid rgba(255,255,255,0.2);
+      padding:8px 16px;border-radius:10px;cursor:pointer;font-size:12px;font-family:'Cairo',sans-serif;font-weight:700">
+      📋 نسخ جميع الطلاب
+    </button>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px;margin-bottom:24px">
+    ${stuCards||'<div style="grid-column:1/-1;text-align:center;padding:40px;color:rgba(255,255,255,0.5)">لا يوجد طلاب</div>'}
   </div>
 
   <!-- سجل المدرّسين -->
-  <div class="panel anim-fade-up" style="padding:0;overflow:hidden">
-    <div class="panel-title" style="padding:14px 16px;border-radius:0;background:linear-gradient(135deg,rgba(154,122,46,0.1),transparent)">
-      <span class="panel-title-txt">👳 سجل المدرّسين (${teachers.length})</span>
-      <button onclick="copyAllRecords('teachers')" style="margin-right:auto;background:var(--gold-dark);color:white;border:none;padding:6px 14px;border-radius:8px;cursor:pointer;font-size:12px;font-family:'Cairo',sans-serif;font-weight:700">📋 نسخ الكل</button>
-    </div>
-    <div style="overflow-x:auto">
-      <table style="${tableStyle}">
-        <thead><tr>
-          <th style="${thStyle}">#</th>
-          <th style="${thStyle}">الاسم</th>
-          <th style="${thStyle}">اسم المستخدم</th>
-          <th style="${thStyle}">كلمة المرور</th>
-          <th style="${thStyle}">الحالة</th>
-          <th style="${thStyle}">نسخ</th>
-        </tr></thead>
-        <tbody>${tchRows||'<tr><td colspan="6" style="text-align:center;padding:20px;color:var(--text-soft)">لا يوجد مدرّسون</td></tr>'}</tbody>
-      </table>
-    </div>
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+    <div style="font-size:16px;font-weight:900;color:white">👳 سجل المدرّسين</div>
+    <button onclick="copyAllRecords('teachers')"
+      style="background:rgba(201,168,76,0.15);color:#E8C96A;border:1px solid rgba(201,168,76,0.25);
+      padding:8px 16px;border-radius:10px;cursor:pointer;font-size:12px;font-family:'Cairo',sans-serif;font-weight:700">
+      📋 نسخ جميع المدرّسين
+    </button>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px;margin-bottom:16px">
+    ${tchCards||'<div style="grid-column:1/-1;text-align:center;padding:40px;color:rgba(255,255,255,0.5)">لا يوجد مدرّسون</div>'}
   </div>`;
 }
 
@@ -2727,51 +2775,55 @@ function buildTeacherRecords() {
   const myStudentIds = [...new Set(mySessions.flatMap(s=>s.studentIds))];
   const myStudents = myStudentIds.map(id=>DB.students.find(s=>s.id===id)).filter(Boolean);
 
-  const rows = myStudents.map((s,i)=>`
-    <tr style="border-bottom:1px solid rgba(201,168,76,0.1)" onmouseover="this.style.background='rgba(201,168,76,0.06)'" onmouseout="this.style.background=''">
-      <td style="padding:12px 10px;font-weight:700;color:var(--gold)">${i+1}</td>
-      <td style="padding:12px 10px">
-        <div style="font-weight:700">${s.fullName}</div>
-        <div style="font-size:11px;color:var(--text-soft)">${s.level}</div>
-      </td>
-      <td style="padding:12px 10px;font-family:monospace;font-size:13px;color:var(--green-mid);font-weight:700;direction:ltr;text-align:right">${s.username}</td>
-      <td style="padding:12px 10px;font-family:monospace;font-size:13px;color:var(--text-med);direction:ltr;text-align:right">${s.password}</td>
-      <td style="padding:12px 10px;text-align:center">
+  const cards = myStudents.map((s,i)=>`
+    <div style="background:white;border-radius:16px;padding:16px;border:1px solid rgba(26,92,69,0.12);
+      box-shadow:0 2px 12px rgba(0,0,0,0.06);transition:transform 0.15s;position:relative;overflow:hidden"
+      onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform=''">
+      <div style="position:absolute;right:0;top:0;bottom:0;width:4px;background:${s.active?'linear-gradient(180deg,#1A5C45,#2E8B5A)':'linear-gradient(180deg,#C0392B,#E74C3C)'};border-radius:0 16px 16px 0"></div>
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
+        <div style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#1A5C45,#2E8B5A);
+          display:flex;align-items:center;justify-content:center;color:white;font-weight:900;font-size:14px;flex-shrink:0">
+          ${i+1}
+        </div>
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:800;font-size:14px;color:#1A1A1A">${s.fullName}</div>
+          <div style="font-size:11px;color:#6B6B6B">${s.level} • ${s.gender==='male'?'👦 ذكر':'👧 أنثى'}</div>
+        </div>
         <span style="padding:4px 10px;border-radius:20px;font-size:11px;font-weight:700;
-          background:${s.active?'rgba(46,139,90,0.15)':'rgba(192,57,43,0.1)'};
-          color:${s.active?'#1A5C45':'#C0392B'}">${s.active?'✅ نشط':'⛔ موقوف'}</span>
-      </td>
-      <td style="padding:12px 10px;text-align:center">
-        <button onclick="copyRecord('${s.fullName}','${s.username}','${s.password}')"
-          style="background:rgba(201,168,76,0.15);border:1px solid rgba(201,168,76,0.3);color:var(--gold);
-          padding:6px 12px;border-radius:8px;cursor:pointer;font-size:12px;font-family:'Cairo',sans-serif;font-weight:700">
-          📋 نسخ
-        </button>
-      </td>
-    </tr>`).join('');
+          background:${s.active?'rgba(26,92,69,0.1)':'rgba(192,57,43,0.1)'};
+          color:${s.active?'#1A5C45':'#C0392B'}">
+          ${s.active?'● نشط':'● موقوف'}
+        </span>
+      </div>
+      <div style="background:#F8FAF9;border-radius:10px;padding:10px 12px;margin-bottom:10px;border:1px solid rgba(26,92,69,0.08)">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+          <span style="font-size:11px;color:#6B6B6B;font-weight:600">👤 اسم المستخدم</span>
+          <span style="font-family:monospace;font-size:13px;color:#0C3526;font-weight:700;direction:ltr">${s.username}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <span style="font-size:11px;color:#6B6B6B;font-weight:600">🔑 كلمة المرور</span>
+          <span style="font-family:monospace;font-size:13px;color:#9A7A2E;font-weight:700;direction:ltr">${s.password}</span>
+        </div>
+      </div>
+      <button onclick="copyRecord('${s.fullName.replace(/'/g,"\\'")}','${s.username}','${s.password}')"
+        style="width:100%;padding:9px;background:linear-gradient(135deg,#1A5C45,#2E8B5A);color:white;border:none;
+        border-radius:10px;font-size:13px;font-weight:800;font-family:'Cairo',sans-serif;cursor:pointer">
+        📋 نسخ بيانات الدخول
+      </button>
+    </div>`).join('');
 
   return `
   <div class="sec-header"><div class="sec-title">📋 سجل طلابي</div></div>
-  <div class="panel anim-fade-up" style="padding:0;overflow:hidden">
-    <div class="panel-title" style="padding:14px 16px;border-radius:0">
-      <span class="panel-title-txt">📚 طلاب حلقتي (${myStudents.length})</span>
-      <button onclick="copyAllRecords('mine')" style="margin-right:auto;background:var(--green-mid);color:white;border:none;padding:6px 14px;border-radius:8px;cursor:pointer;font-size:12px;font-family:'Cairo',sans-serif;font-weight:700">📋 نسخ الكل</button>
-    </div>
-    ${myStudents.length ? `
-    <div style="overflow-x:auto">
-      <table style="width:100%;border-collapse:collapse;font-family:'Cairo',sans-serif;font-size:13px">
-        <thead><tr>
-          <th style="padding:12px 10px;background:linear-gradient(135deg,var(--green-dark),var(--green-mid));color:var(--gold);font-weight:800;text-align:right">#</th>
-          <th style="padding:12px 10px;background:linear-gradient(135deg,var(--green-dark),var(--green-mid));color:var(--gold);font-weight:800;text-align:right">الاسم</th>
-          <th style="padding:12px 10px;background:linear-gradient(135deg,var(--green-dark),var(--green-mid));color:var(--gold);font-weight:800;text-align:right">اسم المستخدم</th>
-          <th style="padding:12px 10px;background:linear-gradient(135deg,var(--green-dark),var(--green-mid));color:var(--gold);font-weight:800;text-align:right">كلمة المرور</th>
-          <th style="padding:12px 10px;background:linear-gradient(135deg,var(--green-dark),var(--green-mid));color:var(--gold);font-weight:800;text-align:right">الحالة</th>
-          <th style="padding:12px 10px;background:linear-gradient(135deg,var(--green-dark),var(--green-mid));color:var(--gold);font-weight:800;text-align:right">نسخ</th>
-        </tr></thead>
-        <tbody>${rows}</tbody>
-      </table>
-    </div>` : '<div class="empty-state"><div class="empty-icon">📚</div><div class="empty-msg">لا يوجد طلاب في حلقتك بعد</div></div>'}
-  </div>`;
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+    <div style="color:rgba(255,255,255,0.7);font-size:13px">${myStudents.length} طالب في حلقتك</div>
+    ${myStudents.length?`<button onclick="copyAllRecords('mine')"
+      style="background:rgba(255,255,255,0.1);color:white;border:1px solid rgba(255,255,255,0.2);
+      padding:8px 16px;border-radius:10px;cursor:pointer;font-size:12px;font-family:'Cairo',sans-serif;font-weight:700">
+      📋 نسخ الكل</button>`:''}
+  </div>
+  ${myStudents.length
+    ? `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px">${cards}</div>`
+    : '<div style="text-align:center;padding:60px 20px;color:rgba(255,255,255,0.4);font-size:15px">📚 لا يوجد طلاب في حلقتك بعد</div>'}`;
 }
 
 function copyRecord(name, user, pass) {
@@ -3280,6 +3332,106 @@ if ('serviceWorker' in navigator) {
   navigator.serviceWorker.addEventListener('controllerchange', () => window.location.reload());
 }
 
+// ═══════════════════════════════════════
+// PUSH NOTIFICATIONS — إشعارات خارج التطبيق
+// ═══════════════════════════════════════
+
+// طلب إذن الإشعارات تلقائياً بعد تسجيل الدخول
+function requestNotifPermission() {
+  if (!('Notification' in window)) return;
+  if (Notification.permission === 'default') {
+    // نأخذ موافقة المستخدم بلطف — بعد ثانيتين من الدخول
+    setTimeout(() => {
+      Notification.requestPermission().then(perm => {
+        if (perm === 'granted') {
+          showToast('🔔 تم تفعيل الإشعارات!');
+          // إشعار ترحيبي
+          _sendNotif('مقرأة بيجي 📖', 'مرحباً! ستصلك إشعارات التبليغات فوراً', '/Ha/index.html');
+        }
+      });
+    }, 2000);
+  }
+}
+
+// إرسال إشعار فعلي للهاتف/الكمبيوتر
+function sendPushNotification(title, body, sender) {
+  if (!('Notification' in window)) return;
+  if (Notification.permission !== 'granted') {
+    // طلب الإذن أولاً ثم إرسال
+    Notification.requestPermission().then(perm => {
+      if (perm === 'granted') _sendNotif(title, body + '\n— ' + sender, '/Ha/index.html');
+    });
+    return;
+  }
+  _sendNotif(title, body + '\n— ' + sender, '/Ha/index.html');
+}
+
+function _sendNotif(title, body, url) {
+  if (Notification.permission !== 'granted') return;
+  // عبر Service Worker (يعمل حتى عند إغلاق التطبيق)
+  if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+    navigator.serviceWorker.ready.then(reg => {
+      reg.showNotification(title, {
+        body,
+        icon: '/Ha/icon-192.png',
+        badge: '/Ha/icon-96.png',
+        tag: 'beeji-notif-' + Date.now(),
+        requireInteraction: false,
+        vibrate: [200, 100, 200],
+        data: { url },
+        actions: [
+          { action: 'open', title: '📖 فتح التطبيق' },
+          { action: 'dismiss', title: '✕ إغلاق' }
+        ]
+      });
+    }).catch(() => {
+      // fallback: Notification API مباشرة
+      const n = new Notification(title, {
+        body,
+        icon: '/Ha/icon-192.png',
+        tag: 'beeji-notif-' + Date.now(),
+      });
+      n.onclick = () => { window.focus(); n.close(); };
+      setTimeout(() => n.close(), 8000);
+    });
+  } else {
+    // fallback مباشر
+    try {
+      const n = new Notification(title, {
+        body,
+        icon: '/Ha/icon-192.png',
+        tag: 'beeji-notif-' + Date.now(),
+      });
+      n.onclick = () => { window.focus(); n.close(); };
+      setTimeout(() => n.close(), 8000);
+    } catch(e) {}
+  }
+}
+
+// مراقبة الإشعارات الجديدة من Firebase (لحظية)
+function watchNewNotifications() {
+  let lastCount = (DB.notifications || []).length;
+  // كل مرة تأتي بيانات جديدة من Firebase — نتحقق من إشعارات جديدة
+  const origWatch = watchCloudChanges;
+  // نضيف listener على DB.notifications
+  setInterval(() => {
+    const current = (DB.notifications || []).length;
+    if (current > lastCount) {
+      const newest = DB.notifications[DB.notifications.length - 1];
+      // لا ترسل إشعاراً لمن أرسله
+      if (newest && newest.sentBy !== (currentUser?.name)) {
+        sendPushNotification(
+          '🔔 ' + newest.title,
+          newest.message,
+          newest.sentBy
+        );
+      }
+      lastCount = current;
+    }
+  }, 2000);
+}
+
+// ═══════════════════════════════════════
 // ENTER KEY
 document.addEventListener('keydown',e=>{
   if(e.key==='Enter'){
