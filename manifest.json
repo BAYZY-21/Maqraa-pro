@@ -1,0 +1,20 @@
+{
+  "name": "مقرأة بيجي لتعليم القرآن",
+  "short_name": "بيجي",
+  "description": "مقرأة بيجي لتعليم القرآن الكريم وعلومه",
+  "start_url": "/Ha/index.html",
+  "scope": "/Ha/",
+  "display": "standalone",
+  "background_color": "#061E14",
+  "theme_color": "#0D3B2E",
+  "orientation": "portrait-primary",
+  "lang": "ar",
+  "dir": "rtl",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ],
+  "screenshots": [],
+  "categories": ["education", "productivity"],
+  "prefer_related_applications": false
+}
