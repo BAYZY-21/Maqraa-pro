@@ -914,12 +914,12 @@ function loadDataLocal() {
 // FIREBASE CONFIG + SYNC
 // ══════════════════════════════════════════
 const FB_CONFIG = {
-  apiKey: "AIzaSyA_TVSFlfwcop3rgcgiSXgVaO2emaOpi8A",
-  authDomain: "maqraa-beeji.firebaseapp.com",
-  projectId: "maqraa-beeji",
-  storageBucket: "maqraa-beeji.firebasestorage.app",
-  messagingSenderId: "180567775802",
-  appId: "1:180567775802:web:7d087b6890d55830e67303"
+  apiKey: "AIzaSyBdNBqPaDLGZ82ZrLc2KD3Z268cM93VWmo",
+  authDomain: "harith-ee09d.firebaseapp.com",
+  projectId: "harith-ee09d",
+  storageBucket: "harith-ee09d.firebasestorage.app",
+  messagingSenderId: "208983662237",
+  appId: "1:208983662237:web:c62fb375fe93ebd13f7e74"
 };
 
 let _fbDB = null;
@@ -928,6 +928,7 @@ function initFirebase() {
   try {
     if (!firebase.apps.length) firebase.initializeApp(FB_CONFIG);
     _fbDB = firebase.firestore();
+    _fbDB.settings({ databaseId: 'harith' });
     return true;
   } catch(e) { console.warn('Firebase init error:', e); return false; }
 }
@@ -985,17 +986,28 @@ let currentRole = null;
 // INIT — تشغيل التطبيق مع Firebase
 // ══════════════════════════════════════════
 (async function initApp() {
-  const fill = document.getElementById('splashFill');
+  const fill   = document.getElementById('splashFill');
   const status = document.getElementById('splashStatus');
-  const setP = (p, msg) => { if(fill) fill.style.width=p+'%'; if(status) status.textContent=msg; };
+  const setP   = (p, msg) => {
+    if (fill)   fill.style.width    = p + '%';
+    if (status) status.textContent  = msg;
+  };
 
-  setP(10, '🔥 جارٍ تهيئة Firebase...');
+  // ── دالة مساعدة: تنتهي بعد N ثانية مهما حدث
+  const withTimeout = (promise, ms) =>
+    Promise.race([promise, new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), ms))]);
+
+  setP(15, '🔥 جارٍ تهيئة Firebase...');
   const ok = initFirebase();
 
   if (ok) {
-    setP(35, '☁️ جارٍ تحميل البيانات من السحابة...');
+    setP(40, '☁️ جارٍ الاتصال بالسحابة...');
     try {
-      const snap = await _fbDB.collection('beeji').doc('mainData').get();
+      // ── محاولة Firebase مع حدّ أقصى 5 ثوانٍ
+      const snap = await withTimeout(
+        _fbDB.collection('beeji').doc('mainData').get(),
+        5000
+      );
       if (snap.exists) {
         const d = JSON.parse(snap.data().data);
         migrateData(d);
@@ -1003,26 +1015,24 @@ let currentRole = null;
         const json = JSON.stringify(d);
         localStorage.setItem(STORE_KEY, json);
         localStorage.setItem('beeji_data_v3', json);
-        setP(75, '✅ تم تحميل البيانات من السحابة');
+        setP(85, '✅ تم تحميل البيانات');
       } else {
-        setP(55, '📤 جارٍ رفع البيانات الافتراضية...');
-        await saveDataCloud(DB);
-        setP(75, '✅ تم إنشاء قاعدة البيانات');
+        setP(60, '📤 جارٍ رفع البيانات الافتراضية...');
+        try { await withTimeout(saveDataCloud(DB), 4000); } catch(e) {}
+        setP(85, '✅ تم إنشاء قاعدة البيانات');
       }
-    } catch(e) { setP(75, '📴 تعذّر الاتصال — وضع محلي'); }
-    setP(90, '🔄 جارٍ تفعيل المزامنة اللحظية...');
-    watchCloudChanges();
-    setP(100, '✅ متصل بـ Firebase 🔥');
+      setP(100, '✅ متصل بـ Firebase 🔥');
+      watchCloudChanges();
+    } catch(e) {
+      // Firebase بطيء أو غير متاح — نكمل بالبيانات المحلية فوراً
+      setP(100, '📴 وضع محلي — بدون إنترنت');
+    }
   } else {
     setP(100, '📴 وضع بدون إنترنت');
   }
 
-  setTimeout(() => {
-    const s = document.getElementById('splash');
-    s.style.transition = 'opacity 0.5s';
-    s.style.opacity = '0';
-    setTimeout(() => { s.style.display = 'none'; if (!restoreSession()) showLogin(); }, 500);
-  }, 700);
+  // أخفِ الـ splash بعد 300ms فقط من وصول 100%
+  setTimeout(hideSplash, 300);
 })();
 
 // ═══════════════════════════════════════
@@ -1070,16 +1080,14 @@ function restoreSession() {
 const SURAHS = ["الفاتحة","البقرة","آل عمران","النساء","المائدة","الأنعام","الأعراف","الأنفال","التوبة","يونس","هود","يوسف","الرعد","إبراهيم","الحجر","النحل","الإسراء","الكهف","مريم","طه","الأنبياء","الحج","المؤمنون","النور","الفرقان","الشعراء","النمل","القصص","العنكبوت","الروم","لقمان","السجدة","الأحزاب","سبأ","فاطر","يس","الصافات","ص","الزمر","غافر","فصلت","الشورى","الزخرف","الدخان","الجاثية","الأحقاف","محمد","الفتح","الحجرات","ق","الذاريات","الطور","النجم","القمر","الرحمن","الواقعة","الحديد","المجادلة","الحشر","الممتحنة","الصف","الجمعة","المنافقون","التغابن","الطلاق","التحريم","الملك","القلم","الحاقة","المعارج","نوح","الجن","المزمل","المدثر","القيامة","الإنسان","المرسلات","النبأ","النازعات","عبس","التكوير","الانفطار","المطففين","الانشقاق","البروج","الطارق","الأعلى","الغاشية","الفجر","البلد","الشمس","الليل","الضحى","الشرح","التين","العلق","القدر","البينة","الزلزلة","العاديات","القارعة","التكاثر","العصر","الهمزة","الفيل","قريش","الماعون","الكوثر","الكافرون","النصر","المسد","الإخلاص","الفلق","الناس"];
 
 // ═══════════════════════════════════════
-// SPLASH
+// SPLASH — يُتحكّم فيه من initApp فقط
 // ═══════════════════════════════════════
-(function runSplash(){
-  let w=0; const fill=document.getElementById('splashFill');
-  const iv=setInterval(()=>{ w+=8; fill.style.width=w+'%'; if(w>=100){clearInterval(iv);hideSplash();} },60);
-})();
-function hideSplash(){
-  const s=document.getElementById('splash');
-  s.style.transition='opacity 0.5s'; s.style.opacity='0';
-  setTimeout(()=>{ s.style.display='none'; if(!restoreSession()) showLogin(); },500);
+function hideSplash() {
+  const s = document.getElementById('splash');
+  if (!s || s.style.display === 'none') return;
+  s.style.transition = 'opacity 0.4s';
+  s.style.opacity    = '0';
+  setTimeout(() => { s.style.display = 'none'; if (!restoreSession()) showLogin(); }, 400);
 }
 
 // ═══════════════════════════════════════
@@ -1682,7 +1690,7 @@ function startGroupCallAdmin(){
 
 // ─── تسريع أقسام المدرّس والطالب أيضاً ───
 function showTeacherSec(sec){
-  ['home','halqa','schedule','notify','requests','messages','call'].forEach(s=>{
+  ['home','halqa','schedule','notify','requests','messages','records'].forEach(s=>{
     const el=document.getElementById('tn-'+s);
     if(el) el.classList.toggle('active',s===sec);
   });
@@ -1697,13 +1705,6 @@ function showStudentSec(sec){
   });
   // ⚡ تحديث لحظي
   document.getElementById('studentContent').innerHTML=buildStudentSec(sec);
-}
-function showTeacherSec(sec){
-  ['home','halqa','schedule','notify','requests','messages','records'].forEach(s=>{
-    const el=document.getElementById('tn-'+s);
-    if(el) el.classList.toggle('active',s===sec);
-  });
-  document.getElementById('teacherContent').innerHTML=buildTeacherSec(sec);
 }
 function buildTeacherSec(sec){
   switch(sec){
@@ -2814,6 +2815,38 @@ function buildTeacherRecords() {
 
   return `
   <div class="sec-header"><div class="sec-title">📋 سجل طلابي</div></div>
+
+  <!-- واتساب الحلقة -->
+  <div style="background:linear-gradient(135deg,rgba(37,211,102,0.12),rgba(37,211,102,0.06));
+    border:1px solid rgba(37,211,102,0.3);border-radius:16px;padding:16px;margin-bottom:18px">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+      <div style="width:36px;height:36px;background:#25D366;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0">💬</div>
+      <div style="font-weight:800;color:white;font-size:14px">مجموعة واتساب الحلقة</div>
+    </div>
+    <div style="display:flex;gap:8px;margin-bottom:10px">
+      <input class="input-field" id="waGroupLink"
+        placeholder="https://chat.whatsapp.com/..."
+        value="${(currentUser.whatsappGroup)||''}" dir="ltr"
+        style="font-size:13px;flex:1;letter-spacing:0.3px"
+        autocorrect="off" autocapitalize="none" spellcheck="false">
+      <button class="btn btn-primary" onclick="saveWhatsappLink()" style="white-space:nowrap;padding:0 16px;background:#25D366;border-color:#25D366">💾 حفظ</button>
+    </div>
+    ${(currentUser.whatsappGroup)
+      ? `<div style="display:flex;gap:8px">
+          <a href="${currentUser.whatsappGroup}" target="_blank" rel="noopener noreferrer"
+            style="flex:1;display:flex;align-items:center;justify-content:center;gap:8px;background:#25D366;color:white;
+            padding:12px;border-radius:12px;text-decoration:none;font-weight:800;font-size:13px">
+            💬 فتح المجموعة
+          </a>
+          <button onclick="startGroupCall()"
+            style="flex:1;background:rgba(37,211,102,0.15);color:#4ade80;border:1px solid rgba(37,211,102,0.3);
+            padding:12px;border-radius:12px;font-weight:800;font-size:13px;font-family:'Cairo',sans-serif;cursor:pointer">
+            📢 إرسال للطلاب
+          </button>
+        </div>`
+      : `<div style="text-align:center;color:rgba(255,255,255,0.4);font-size:12px;padding:4px">أدخل الرابط أولاً ثم احفظه</div>`}
+  </div>
+
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
     <div style="color:rgba(255,255,255,0.7);font-size:13px">${myStudents.length} طالب في حلقتك</div>
     ${myStudents.length?`<button onclick="copyAllRecords('mine')"
@@ -2991,57 +3024,6 @@ function startCall(targetName, targetEmoji, convKey) {
   } else {
     showToast('💬 تم إرسال إشعار التواصل للطرف الآخر');
   }
-}
-
-function buildTeacherCall() {
-  const mySessions=DB.sessions.filter(s=>s.teacherId===currentUser.id);
-  const myStudentIds=[...new Set(mySessions.flatMap(s=>s.studentIds))];
-  const myStudents=myStudentIds.map(id=>DB.students.find(s=>s.id===id)).filter(Boolean);
-  const savedLink=(currentUser.whatsappGroup)||'';
-  return `
-  <div class="sec-header"><div class="sec-title">📞 التواصل مع الحلقة</div></div>
-
-  <div class="panel anim-fade-up" style="margin-bottom:16px;border:2px solid #25D366">
-    <div class="panel-title"><span class="panel-title-txt" style="color:#25D366">💬 رابط مجموعة واتساب الحلقة</span></div>
-    <p style="font-size:13px;color:var(--text-med);margin-bottom:14px;line-height:1.8">
-      أدرج رابط مجموعة واتساب حلقتك، ثم اضغط إرسال لإبلاغ جميع الطلاب.
-    </p>
-    <div style="display:flex;gap:8px;margin-bottom:12px">
-      <input class="input-field" id="waGroupLink"
-        placeholder="https://chat.whatsapp.com/..."
-        value="${savedLink}" dir="ltr"
-        style="font-size:13px;flex:1;letter-spacing:0.3px"
-        autocorrect="off" autocapitalize="none" spellcheck="false">
-      <button class="btn btn-primary" onclick="saveWhatsappLink()" style="white-space:nowrap;padding:0 16px">💾 حفظ</button>
-    </div>
-    ${savedLink
-      ? `<a href="${savedLink}" target="_blank" rel="noopener noreferrer"
-          style="display:flex;align-items:center;justify-content:center;gap:10px;background:#25D366;color:white;padding:14px;border-radius:12px;text-decoration:none;font-weight:800;font-size:15px">
-          <span style="font-size:22px">💬</span> فتح مجموعة واتساب مباشرة
-        </a>`
-      : `<div style="text-align:center;color:var(--text-soft);font-size:13px;padding:8px">⬆️ أدرج الرابط أولاً ثم احفظه</div>`}
-  </div>
-
-  <div class="panel anim-fade-up" style="margin-bottom:16px">
-    <div class="panel-title"><span class="panel-title-txt">📢 إشعار جماعي للطلاب</span></div>
-    <p style="font-size:13px;color:var(--text-med);margin-bottom:14px;line-height:1.8">
-      اضغط الزر لإرسال رابط مجموعة واتساب لجميع طلابك عبر الرسائل الداخلية.
-    </p>
-    <button class="btn btn-primary btn-full" onclick="startGroupCall()" style="font-size:15px;padding:14px">
-      📢 إرسال رابط المجموعة لجميع الطلاب
-    </button>
-  </div>
-
-  <div class="panel anim-fade-up">
-    <div class="panel-title"><span class="panel-title-txt">💬 مراسلة طالب مباشرة</span></div>
-    ${myStudents.length
-      ? myStudents.map(st=>`
-        <div class="student-row" style="margin-bottom:8px">
-          <div><div class="s-name">👤 ${st.fullName}</div><div class="s-meta">${st.level}</div></div>
-          <button class="btn btn-gold btn-sm" onclick="openChat('student',${st.id},'${st.fullName}','📚')">💬 رسالة</button>
-        </div>`).join('')
-      : '<div class="empty-state"><div class="empty-msg">لا يوجد طلاب في حلقاتك</div></div>'}
-  </div>`;
 }
 
 function saveWhatsappLink() {
